@@ -3,7 +3,7 @@
 Composant personnalisé Home Assistant qui ajoute les appareils Airzone ignorés par l'intégration officielle **Airzone Cloud** :
 
 - **Capteur de qualité d'air AirQ** (`az_airqsensor`) : CO₂, COV totaux, PM1 / PM2.5 / PM10, pression, humidité, température, score et qualité (globale et par mesure), états purification / ventilation / relais VMC / mode nuit, et sélecteur du mode de ventilation (off / on / auto).
-- **Pince de consommation** (`az_energy_clamp`) : une entité par valeur numérique renvoyée par l'API (unités à préciser), plus un capteur « Données brutes ».
+- **Pince de consommation** (`az_energy_clamp`) : énergie consommée / renvoyée sur la dernière heure (kWh), puissance (kW), courant (A), tension (V), et deux **compteurs cumulés** (`total_increasing`, kWh) utilisables dans le tableau de bord Énergie.
 
 ## Fonctionnement
 
@@ -23,5 +23,6 @@ Copier `custom_components/airzone_cloud_extra` dans `/config/custom_components/`
 - L'intégration officielle **Airzone Cloud** configurée et chargée.
 
 ## Limites connues
-- Le changement de mode de ventilation (PATCH `aq_vent_mode_conf`) n'a pas encore été validé sur une installation réelle.
-- La pince énergie publie ses mesures toutes les 60 min ; ses champs ne sont pas encore typés (unités, classe énergie).
+- Le mode de ventilation est modifié via `PATCH /devices/{id}` (`param`, `value`, `installation_id`), conforme à la doc Airzone.
+- La pince publie ses mesures toutes les 60 min. D'après la [doc Airzone](https://developers.airzonecloud.com/docs/web-api/), l'énergie publiée est celle de la dernière heure en kWh ; les compteurs cumulés l'additionnent à chaque nouvelle période (`energy_period_end_dt`).
+- `power_total`, `current_total` et `voltage_total` ne sont pas documentés : unités déduites (kW, A, V).

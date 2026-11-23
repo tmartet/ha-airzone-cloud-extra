@@ -18,11 +18,17 @@ from homeassistant.const import (
     CONCENTRATION_PARTS_PER_MILLION,
     PERCENTAGE,
     EntityCategory,
+    UnitOfElectricCurrent,
+    UnitOfElectricPotential,
+    UnitOfEnergy,
+    UnitOfPower,
     UnitOfPressure,
     UnitOfTemperature,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.util import dt as dt_util
 
 from .const import META_KEYS, TYPE_AIRQ, TYPE_ENERGY_CLAMP
 from .coordinator import AirzoneExtraCoordinator
@@ -75,6 +81,32 @@ AIRQ_SENSORS: tuple[AirzoneExtraSensorDescription, ...] = (
 )
 
 
+# Pince énergie. Doc Airzone : l'énergie publiée est celle consommée pendant la
+# dernière heure, en kWh. Les autres champs (puissance, courant, tension) ne sont
+# pas documentés : unités déduites des valeurs observées.
+CLAMP_SENSORS: tuple[AirzoneExtraSensorDescription, ...] = (
+    AirzoneExtraSensorDescription(key="energy_acc", name="Énergie consommée dernière heure",
+                                  device_class=SensorDeviceClass.ENERGY,
+                                  native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR),
+    AirzoneExtraSensorDescription(key="energy_ret", name="Énergie renvoyée dernière heure",
+                                  device_class=SensorDeviceClass.ENERGY,
+                                  native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR),
+    AirzoneExtraSensorDescription(key="power_total", name="Puissance", device_class=SensorDeviceClass.POWER,
+                                  native_unit_of_measurement=UnitOfPower.KILO_WATT, state_class=M),
+    AirzoneExtraSensorDescription(key="current_total", name="Courant", device_class=SensorDeviceClass.CURRENT,
+                                  native_unit_of_measurement=UnitOfElectricCurrent.AMPERE, state_class=M),
+    AirzoneExtraSensorDescription(key="voltage_total", name="Tension", device_class=SensorDeviceClass.VOLTAGE,
+                                  native_unit_of_measurement=UnitOfElectricPotential.VOLT, state_class=M),
+    AirzoneExtraSensorDescription(key="energy_period_end_dt", name="Fin de période mesurée",
+                                  device_class=SensorDeviceClass.TIMESTAMP,
+                                  entity_category=EntityCategory.DIAGNOSTIC),
+)
+CLAMP_COUNTERS = (
+    ("energy_acc", "Énergie consommée"),
+    ("energy_ret", "Énergie renvoyée"),
+)
+
+
 def _flatten(status: dict[str, Any]) -> dict[str, float | int]:
     """Aplati les valeurs numériques (un niveau d'imbrication)."""
     out: dict[str, float | int] = {}
@@ -104,9 +136,20 @@ async def async_setup_entry(
                 if d.key in status
             ]
         elif info["type"] == TYPE_ENERGY_CLAMP:
-            # Champs encore inconnus : un capteur générique par valeur numérique
+            known = {d.key for d in CLAMP_SENSORS}
             entities += [
-                AirzoneGenericSensor(coordinator, device_id, path) for path in _flatten(status)
+                AirzoneExtraSensor(coordinator, device_id, d) for d in CLAMP_SENSORS if d.key in status
+            ]
+            entities += [
+                AirzoneEnergyCounter(coordinator, device_id, key, name)
+                for key, name in CLAMP_COUNTERS
+                if key in status
+            ]
+            # Champs non documentés restants : capteurs génériques
+            entities += [
+                AirzoneGenericSensor(coordinator, device_id, path)
+                for path in _flatten(status)
+                if path not in known
             ]
         entities.append(AirzoneRawSensor(coordinator, device_id, "raw"))
     async_add_entities(entities)
@@ -126,7 +169,62 @@ class AirzoneExtraSensor(AirzoneExtraEntity, SensorEntity):
             val = val.get(self.entity_description.sub_key)
         if self.entity_description.device_class == SensorDeviceClass.ENUM and val not in QUALITY_OPTIONS:
             return None
+        if self.entity_description.device_class == SensorDeviceClass.TIMESTAMP:
+            return dt_util.parse_datetime(val) if isinstance(val, str) else None
         return val
+
+
+class AirzoneEnergyCounter(AirzoneExtraEntity, SensorEntity, RestoreEntity):
+    """Compteur cumulé (kWh) construit à partir des relevés horaires de la pince.
+
+    À chaque nouvelle période (energy_period_end_dt change), la valeur horaire est
+    ajoutée au total. Le total et la dernière période comptée sont restaurés au
+    redémarrage pour ne jamais compter deux fois la même heure.
+    Utilisable directement dans le tableau de bord Énergie.
+    """
+
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+    _attr_suggested_display_precision = 3
+
+    def __init__(self, coordinator, device_id, source_key: str, name: str) -> None:
+        super().__init__(coordinator, device_id, f"{source_key}_total")
+        self.source_key = source_key
+        self._attr_name = name
+        self._total: float = 0.0
+        self._last_period: str | None = None
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last is not None:
+            try:
+                self._total = float(last.state)
+            except (TypeError, ValueError):
+                self._total = 0.0
+            self._last_period = last.attributes.get("derniere_periode")
+        self._accumulate()
+
+    def _accumulate(self) -> None:
+        period = self.status.get("energy_period_end_dt")
+        value = self.status.get(self.source_key)
+        if period and period != self._last_period and isinstance(value, (int, float)) and value >= 0:
+            self._total = round(self._total + value, 6)
+            self._last_period = period
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        self._accumulate()
+        super()._handle_coordinator_update()
+
+    @property
+    def native_value(self) -> float:
+        return self._total
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"derniere_periode": self._last_period}
 
 
 class AirzoneGenericSensor(AirzoneExtraEntity, SensorEntity):
