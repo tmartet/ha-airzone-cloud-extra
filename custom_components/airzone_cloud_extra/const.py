@@ -19,6 +19,7 @@ CONFIG_TYPES = {TYPE_SYSTEM}
 MODEL_NAMES = {
     TYPE_AIRQ: "Capteur qualité d'air AirQ",
     TYPE_ENERGY_CLAMP: "Pince de consommation",
+    "az_system": "Centrale (réglages avancés)",
 }
 
 # Champs techniques jamais exposés comme capteurs génériques

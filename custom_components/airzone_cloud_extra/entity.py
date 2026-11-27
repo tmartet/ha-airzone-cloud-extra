@@ -24,8 +24,15 @@ class AirzoneExtraEntity(CoordinatorEntity[AirzoneExtraCoordinator]):
         default_name = "Qualité d'air" if info["type"] == TYPE_AIRQ else "Conso Airzone"
         self._attr_unique_id = f"{device_id}_{key}"
         if info["type"] == TYPE_SYSTEM:
-            # Rattaché à l'appareil "système" déjà créé par l'intégration officielle
-            self._attr_device_info = DeviceInfo(identifiers={(SOURCE_DOMAIN, device_id)})
+            # HA ne permet pas d'ajouter une entité à l'appareil d'une autre intégration :
+            # appareil propre, relié à celui de la centrale officielle via via_device.
+            self._attr_device_info = DeviceInfo(
+                identifiers={(DOMAIN, device_id)},
+                manufacturer="Airzone",
+                model=MODEL_NAMES.get(TYPE_SYSTEM),
+                name="Centrale Airzone",
+                via_device=(SOURCE_DOMAIN, device_id),
+            )
             return
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},

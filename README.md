@@ -5,7 +5,7 @@ Composant personnalisé Home Assistant qui ajoute les appareils Airzone ignorés
 - **Capteur de qualité d'air AirQ** (`az_airqsensor`) : CO₂, COV totaux, PM1 / PM2.5 / PM10, pression, humidité, température, score et qualité (globale et par mesure), états purification / ventilation / relais VMC / mode nuit, et sélecteur du mode de ventilation (off / on / auto).
 - **Pince de consommation** (`az_energy_clamp`) : énergie consommée / renvoyée sur la dernière heure (kWh), puissance (kW), courant (A), tension (V), et deux **compteurs cumulés** (`total_increasing`, kWh) utilisables dans le tableau de bord Énergie.
 
-- **Système (centrale)** : sélecteur **Q-Adapt** (`qadapt_conf` : standard / silence / min / max / power), qui règle l'adaptation du débit de l'unité gainable. Ajouté à l'appareil système existant de l'intégration officielle. Nécessite un compte administrateur de l'installation.
+- **Système (centrale)** : sélecteur **Q-Adapt** (`qadapt_conf` : standard / silence / min / max / power), qui règle l'adaptation du débit de l'unité gainable. Exposé sur un appareil « Centrale Airzone » relié à la centrale de l'intégration officielle. Nécessite un compte administrateur de l'installation.
 
 ## Fonctionnement
 

@@ -19,5 +19,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
+async def async_remove_config_entry_device(hass: HomeAssistant, entry: ConfigEntry, device) -> bool:
+    """Autorise la suppression manuelle d'un appareil orphelin."""
+    return True
+
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
