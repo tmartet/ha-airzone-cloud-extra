@@ -3,12 +3,28 @@
     "step": {
       "user": {
         "title": "Installation Airzone Cloud source",
-        "data": { "source_entry_id": "Intégration Airzone Cloud" }
+        "data": {
+          "source_entry_id": "Intégration Airzone Cloud"
+        }
       }
     },
     "abort": {
       "no_source": "Configure d'abord l'intégration Airzone Cloud.",
       "already_configured": "Déjà configuré pour cette installation Airzone Cloud."
+    }
+  },
+  "entity": {
+    "select": {
+      "qadapt": {
+        "name": "Q-Adapt (débit ventilateur)",
+        "state": {
+          "standard": "Standard",
+          "silence": "Silence",
+          "min": "Minimum",
+          "max": "Maximum",
+          "power": "Puissance"
+        }
+      }
     }
   }
 }

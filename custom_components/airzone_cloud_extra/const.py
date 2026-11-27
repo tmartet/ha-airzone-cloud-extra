@@ -11,7 +11,10 @@ SCAN_INTERVAL = timedelta(seconds=60)
 
 TYPE_AIRQ = "az_airqsensor"
 TYPE_ENERGY_CLAMP = "az_energy_clamp"
+TYPE_SYSTEM = "az_system"
 SUPPORTED_TYPES = {TYPE_AIRQ, TYPE_ENERGY_CLAMP}
+# Appareils déjà gérés par l'intégration officielle, dont on lit seulement la config
+CONFIG_TYPES = {TYPE_SYSTEM}
 
 MODEL_NAMES = {
     TYPE_AIRQ: "Capteur qualité d'air AirQ",

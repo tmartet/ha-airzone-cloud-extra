@@ -3,12 +3,28 @@
     "step": {
       "user": {
         "title": "Airzone Cloud source",
-        "data": { "source_entry_id": "Airzone Cloud integration" }
+        "data": {
+          "source_entry_id": "Airzone Cloud integration"
+        }
       }
     },
     "abort": {
       "no_source": "Set up the Airzone Cloud integration first.",
       "already_configured": "Already configured for this Airzone Cloud installation."
+    }
+  },
+  "entity": {
+    "select": {
+      "qadapt": {
+        "name": "Q-Adapt",
+        "state": {
+          "standard": "Standard",
+          "silence": "Silence",
+          "min": "Minimum",
+          "max": "Maximum",
+          "power": "Power"
+        }
+      }
     }
   }
 }

@@ -30,7 +30,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import dt as dt_util
 
-from .const import META_KEYS, TYPE_AIRQ, TYPE_ENERGY_CLAMP
+from .const import META_KEYS, TYPE_AIRQ, TYPE_ENERGY_CLAMP, TYPE_SYSTEM
 from .coordinator import AirzoneExtraCoordinator
 from .entity import AirzoneExtraEntity
 
@@ -128,6 +128,8 @@ async def async_setup_entry(
     coordinator: AirzoneExtraCoordinator = entry.runtime_data
     entities: list[SensorEntity] = []
     for device_id, info in coordinator.data.items():
+        if info["type"] == TYPE_SYSTEM:
+            continue
         status = info.get("status", {})
         if info["type"] == TYPE_AIRQ:
             entities += [

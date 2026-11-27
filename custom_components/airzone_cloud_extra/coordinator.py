@@ -10,7 +10,7 @@ from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import CONF_SOURCE_ENTRY_ID, SCAN_INTERVAL, SUPPORTED_TYPES
+from .const import CONF_SOURCE_ENTRY_ID, CONFIG_TYPES, SCAN_INTERVAL, SUPPORTED_TYPES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ class AirzoneExtraCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         found: dict[str, dict[str, Any]] = {}
         for group in inst.get("groups", []):
             for dev in group.get("devices", []):
-                if dev.get("type") in SUPPORTED_TYPES:
+                if dev.get("type") in SUPPORTED_TYPES | CONFIG_TYPES:
                     found[dev["device_id"]] = {
                         "type": dev["type"],
                         "name": dev.get("name") or "",
@@ -79,6 +79,22 @@ class AirzoneExtraCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             return res["status"]
         return res or {}
 
+    async def _get_config(self, api, device_id: str) -> dict[str, Any]:
+        """Configuration (paramètres avancés comme Q-Adapt) d'un appareil."""
+        res: dict[str, Any] = {}
+        for req_type in ("user", "advanced"):
+            params = urlencode({"installation_id": self.installation_id, "type": req_type})
+            try:
+                res = await api.api_request(
+                    "GET", f"{API_V1}/devices/{device_id}/config?{params}"
+                ) or {}
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.debug("Config %s (%s) impossible : %s", device_id, req_type, err)
+                continue
+            if "qadapt_conf" in res:
+                break
+        return res
+
     # ------------------------------------------------------------------ update
     async def _async_update_data(self) -> dict[str, dict[str, Any]]:
         api = self._get_api()
@@ -87,11 +103,16 @@ class AirzoneExtraCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
                 await self._discover(api)
             data: dict[str, dict[str, Any]] = {}
             for device_id, info in self.devices.items():
+                previous = (self.data or {}).get(device_id, {})
+                if info["type"] in CONFIG_TYPES:
+                    config = await self._get_config(api, device_id) or previous.get("config", {})
+                    data[device_id] = {**info, "status": {}, "config": config}
+                    continue
                 try:
                     status = await self._get_status(api, device_id)
                 except Exception as err:  # noqa: BLE001
                     _LOGGER.debug("Lecture %s impossible : %s", device_id, err)
-                    status = (self.data or {}).get(device_id, {}).get("status", {})
+                    status = previous.get("status", {})
                 data[device_id] = {**info, "status": status}
             return data
         except UpdateFailed:
